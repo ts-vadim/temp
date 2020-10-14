@@ -1,8 +1,3 @@
-# Temp
----
-
-[![Build Status]()
-
 > The overriding design goal for Markdown's
 > formatting syntax is to make it as readable
 > as possible. The idea is that a
