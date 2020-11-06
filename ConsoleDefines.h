@@ -1,0 +1,24 @@
+#pragma once
+
+#ifndef CONSOLEDEFINES_H_INCLUDED
+#define CONSOLEDEFINES_H_INCLUDED
+
+#include <cstdio>
+#include <windows.h>
+#include <math.h>
+#include <stdarg.h>
+
+
+namespace ConsoleColor
+{
+    const WORD White = FOREGROUND_INTENSITY;
+    const WORD Green = FOREGROUND_INTENSITY | FOREGROUND_GREEN;
+    const WORD Blue = FOREGROUND_INTENSITY | FOREGROUND_BLUE;
+    const WORD Red = FOREGROUND_INTENSITY | FOREGROUND_RED;
+    const WORD Cyan = FOREGROUND_INTENSITY | FOREGROUND_BLUE | FOREGROUND_GREEN;
+    const WORD Yellow = FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN;
+    const WORD Magenta = FOREGROUND_INTENSITY | FOREGROUND_BLUE | FOREGROUND_RED;
+    const WORD Reverse = COMMON_LVB_REVERSE_VIDEO;
+};
+
+#endif // CONSOLEDEFINES_H_INCLUDED
