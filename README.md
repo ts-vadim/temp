@@ -1,2 +1,2 @@
 # Notes
-[dragster.amperka.ru](dragster.amperka.ru)
+[http://wiki.amperka.ru/dragster](dragster.amperka.ru)
