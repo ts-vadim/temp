@@ -1,0 +1,22 @@
+#######################################
+# Syntax Coloring Map For PID Library
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+LineFollowProgram		KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+OnStart			KEYWORD2
+OnUpdate		KEYWORD2
+OnPrintStatus		KEYWORD2
+OnDrawMatrix		KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
