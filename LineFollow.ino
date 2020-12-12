@@ -6,127 +6,118 @@
 #define Matrix TroykaLedMatrix
 
 
-//	Globals
-enum ProgramState { WAITING_FOR_START, FOLLOWING_LINE, STOPPED };
-struct EnvVarsStruct
+//  ############  Externs / Forwards  ############  
+extern void log(String str = "", char end = '\n');
+extern String SerialRead(bool wait_for_input = false);
+
+
+//  ############  Declarations  ############  
+struct DragsterControlVars
 {
 	Matrix& matrix;
 	Dragster& dragster;
 	Octoliner& octoliner;
-	ProgramState& programState;
 
-	EnvVarsStruct(ProgramState& _programState, Matrix& _matrix, Dragster& _dragster, Octoliner& _octoliner)
-		: programState(_programState), matrix(_matrix), dragster(_dragster), octoliner(_octoliner) {}
+	DragsterControlVars(Matrix& _matrix, Dragster& _dragster, Octoliner& _octoliner)
+		: matrix(_matrix), dragster(_dragster), octoliner(_octoliner) {}
 };
 
 
-//	Functions Forward Declarations
-void log(String str = "", char end = '\n');
-String SerialRead(bool wait_for_input = false);
-void SetState(ProgramState state);
+class ProgramState
+{
+  public:
+    enum State { WAITING_FOR_START, FOLLOWING_LINE, STOPPED, NONE };
+
+    static void SetState(State state)
+    {
+      switch (state)
+      {
+        case State::WAITING_FOR_START:
+          m_State = state;
+          log("State: WAITING_FOR_START");
+          break;
+
+        case State::FOLLOWING_LINE:
+          m_State = state;
+          log("State: FOLLOWING_LINE");
+          break;
+
+        case State::STOPPED:
+          m_State = state;
+          log("State: STOPPED");
+          break;
+
+        case State::NONE:
+          m_State = state;
+          log("State: NONE");
+          break;
+
+        default:
+          log("State: invalid state value \'" + String((int)state) + "\'");
+          break;
+      }
+    }
+    
+    static State GetState() { return m_State; }
+
+  private:
+    static State m_State;
+};
+static ProgramState::State ProgramState::m_State = State::STOPPED;
+
+struct UserCommand
+{
+  const char* text;
+  ProgramState::State triggerState;
+  void (*function)(DragsterControlVars& vars);
+
+  UserCommand(const char* _text, ProgramState::State state, void (*_function)(DragsterControlVars& vars))
+    : text(_text), triggerState(state), function(_function) {}
+};
 
 
-//	Main Line Follow Program
+//  ############  Main Line Follow Program  ############  
 class LineFollowProgram
 {
 private:
-	EnvVarsStruct& vars;
+	DragsterControlVars& vars;
 
 public:
-	LineFollowProgram(EnvVarsStruct& _vars)
+	LineFollowProgram(DragsterControlVars& _vars)
 		: vars(_vars) {}
 
 	void OnStart() {}
-	void OnUpdate() {}
+	void OnUpdate() { log("OnUpdate()"); }
 	void OnPrintStatus() {}
 	void OnDrawMatrix() {}
 };
 
 
-//	Update State / Main Functions
-void UpdateUserCommand(EnvVarsStruct& vars)
-{
-	String cmd = SerialRead();
-	if (cmd.length() == 0)
-		return;
+//  ############  Externs / Forwards  ############  
+void UpdateUserCommand(DragsterControlVars& vars);
+void StateWaiting(DragsterControlVars& vars);
+void StateFollowing(LineFollowProgram& lineFollow);
+void StateStopped(DragsterControlVars& vars);
 
-	if (cmd.equals("wait"))
-	{
-		vars.programState = ProgramState::WAITING_FOR_START;
-		log("Set Wait State");
-	}
-	else if (cmd.equals("follow"))
-	{
-		vars.programState = ProgramState::FOLLOWING_LINE;
-		log("Set Follow State");
-	}
-	else if (cmd.equals("stop"))
-	{
-		vars.programState = ProgramState::STOPPED;
-		log("Set Stop State");
-	}
-	else
-	{
-		log("Unkown command \'" + cmd + "\'");
-	}
-}
+// WAITING_FOR_START, FOLLOWING_LINE, STOPPED, NONE
+const UserCommand userCommands[] = {
+  UserCommand("wait", ProgramState::State::WAITING_FOR_START, StateWaiting),
+  UserCommand("help", -1, [](){ log("HELP:\n  wait\n  follow\n  stop"); }),
+  UserCommand((const char*)0, ProgramState::State::NONE, (void*)0)
+};
 
-void StateWaiting(EnvVarsStruct& vars)
-{
-	static const float radius = 3;
-	static const float rotation_speed = 10;// rps
-	static const float coord_pad = 4;
-	static int prev_time = 0;
-	static float angle = 0;
-
-	int current_time = millis();
-
-	float x = cos(angle) * radius;
-	float y = sin(angle) * radius;
-
-	log("Current: " + String(current_time) + " XY: " + String(x) + " " + String(y));
-
-	vars.matrix.pixel(-x + coord_pad, -y + coord_pad, true);
-	vars.matrix.pixel(x + coord_pad, y + coord_pad, true);
-
-	angle += rotation_speed * (current_time - prev_time) / 1000.0;
-	prev_time = current_time;
-}
-
-void StateFollowing(LineFollowProgram& lineFollow)
-{
-	/*
-	lineFollow.OnUpdate();
-	log("Line Follow Status:");
-	lineFollow.OnPrintStatus();
-	log();
-	lineFollow.OnDrawMatrix();
-	*/
-}
-
-void StateStoped(EnvVarsStruct& vars)
-{
-	/*
-	static ProgramState prev_program_state = vars.programState;
-	ProgramState current_program_state = vars.programState;
-
-	if (prev_program_state != current_program_state)
-		log("Now Stopped");
-	prev_program_state = current_program_state;
-
-*/
-}
+void UpdateUserCommands(String cmd, DragsterControlVars& vars, UserCommand commands[]);
 
 
 
-//	Arduino Mains
+//  ############  Arduino Mains  ############  
 void setup()
 {
-	ProgramState programState = ProgramState::STOPPED;
+	ProgramState programState;
 	Matrix matrix;
 	Dragster dragster;
 	Octoliner octoliner;
-	EnvVarsStruct vars(programState, matrix, dragster, octoliner);
+	DragsterControlVars vars(matrix, dragster, octoliner);
 	LineFollowProgram lineFollow(vars);
 
 	Serial.begin(9600);
@@ -140,23 +131,14 @@ void setup()
 	log("Mainloop");
 	while (true)
 	{
-		UpdateUserCommand(vars);
+    String cmd = SerialRead();
+    if (cmd.length() == 0)
+      continue;
+      
+		UpdateState(cmd);
 
 		vars.matrix.customClear();
-		switch (vars.programState)
-		{
-			case ProgramState::WAITING_FOR_START:
-				StateWaiting(vars);
-				break;
-
-			case ProgramState::FOLLOWING_LINE:
-				StateFollowing(lineFollow);
-				break;
-
-			case ProgramState::STOPPED:
-				StateStoped(vars);
-				break;
-		}
+    UpdateUserCommands(cmd, vars, userCommands);
 		vars.matrix.customUpdate();
 	}
 	log("Mainloop exited");
@@ -167,42 +149,77 @@ void loop()
 }
 
 
-//	Implementations
-void log(String str = "", char end = '\n')
+
+
+
+//  ############  Implementation ############
+
+//  Update State / Main Functions
+
+void UpdateUserCommands(String cmd, DragsterControlVars& vars, UserCommand commands[])
 {
-	if (Serial)
-		Serial.print(str + end);
+  ProgramState::State current_state = ProgramState::GetState();
+  for (int i = 0; commands[i].function != 0; i++)
+  {
+    if (cmd.equals(commands[i].text) || current_state == commands[i].triggerState)
+    {
+      log("CALLING: \'" + String(commands[i].text) + "\'");
+      commands->function(vars);
+    }
+  } 
 }
 
-String SerialRead(bool wait_for_input = false)
+void UpdateState(String cmd)
 {
-	String output;
-	if (wait_for_input)
-		while (Serial.available() <= 0);
-	while (Serial.available() > 0)
-	{
-		char c = Serial.read();
-		if (c == '\n')
-			break;
-		output += c;
-	}
-	return output;
+  if (cmd.equals("wait"))
+    ProgramState::SetState(ProgramState::State::WAITING_FOR_START);
+   
+  else if (cmd.equals("follow"))
+    ProgramState::SetState(ProgramState::State::FOLLOWING_LINE);
+   
+  else if (cmd.equals("stop"))
+    ProgramState::SetState(ProgramState::State::STOPPED);
+   
+  else
+    log("Unkown command \'" + cmd + "\'");
 }
 
-void SetState(EnvVarsStruct& vars, ProgramState state)
+void StateWaiting(DragsterControlVars& vars)
 {
-	switch (state)
-	{
-		case ProgramState::WAITING_FOR_START:
-			vars.programState = state;
-			log("State: WAITING_FOR_START");
-			break;
-	}
+  static const float radius = 3;
+  static const float rotation_speed = 10;// rps
+  static const float coord_pad = 4;
+  static int prev_time = 0;
+  static float angle = 0;
+
+  int current_time = millis();
+
+  float x = cos(angle) * radius;
+  float y = sin(angle) * radius;
+  
+  vars.matrix.pixel(-x + coord_pad, -y + coord_pad, true);
+  vars.matrix.pixel(x + coord_pad, y + coord_pad, true);
+
+  angle += rotation_speed * (current_time - prev_time) / 1000.0;
+  prev_time = current_time;
 }
 
+void StateFollowing(LineFollowProgram& lineFollow)
+{
+  lineFollow.OnUpdate();
+  lineFollow.OnPrintStatus();
+  lineFollow.OnDrawMatrix();
+}
 
+void StateStoped(DragsterControlVars& vars)
+{
+  static ProgramState::State prev_program_state = ProgramState::GetState();
+  ProgramState::State current = ProgramState::GetState();
 
-
+  if (prev_program_state != current)
+    log("Now Stopped");
+  prev_program_state = current;
+}
 
 
 
